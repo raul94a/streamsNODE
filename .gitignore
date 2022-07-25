@@ -1,0 +1,8 @@
+/node_modules
+/files
+*.txt
+*.BR
+*.DEFLATE
+*.[BR|DEFLATE|txt|mp4|zip]
+*.zip
+*.mp4
