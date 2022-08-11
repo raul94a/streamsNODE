@@ -13,7 +13,10 @@ const { Readable, Writable } = require('stream');
 class StreamManager{
     constructor(channel){
         this.channel = channel
-        this.writer = createWriteStream('./files/' + this.channel);
+        this.writer = createWriteStream('./files/' + this.channel)
+    }
+    drain(socket){
+        socket.emit('drain')
     }
 }
 const streamController = []
@@ -41,7 +44,7 @@ let iter = 0;
         if (cc === null) {
             chunk = socket.read(1)
             cc = chunk && chunk.readUInt8(0);
-           
+      
 
             // if(!file['length']){
             //     console.log('en file length no existe')
@@ -50,19 +53,32 @@ let iter = 0;
             // }
 
 
-        }else{
-            // console.log('NO CC es nul!!!!!!!!!!!!!!!!!!!!!!!!!11 en', iter )
-
         }
         if(file === null){
             // console.log('CC vale esto =>', cc)
             file = socket.read(cc)
             if(file === null) return null;
             let filename = file.toString('utf-8')
-            console.log(filename)
-            if(!files[file]){
-               createWriter(file)
+            // console.log(filename)
+            let channelExists = false;
+        
+            streamManager = streamController.filter(element => element.channel === filename)[0];
+            if(!streamManager){
+                console.log('No existe un canal para', filename)    
+            }else{
+                // console.log('Existe canal para',filename)
+                channelExists = true;
             }
+         
+            if(!channelExists){
+                console.log('Creando el canal para el archivo', filename)
+                streamManager = new StreamManager(filename)
+                streamController.push(streamManager);
+            }
+            // console.log(filename)
+            // if(!files[file]){
+            //    createWriter(file)
+            // }
          
       
             file = filename.trim()
@@ -73,61 +89,55 @@ let iter = 0;
             chunk = socket.read(4);
             cl = chunk && chunk.readUInt32BE(0)
             // console.log('cl: ', chunk.toString('utf-8'))
-            if (cl === null) return null;
+            if (cl === null) return ;
         }
 
       
 
         chunk = socket.read(cl);
 
+
         if (chunk === null) {
+        
+            // console.log('Chunk es null para el canal',file)
+            // console.log('La razon es', cl, chunk)
+       
+           // socket.emit('drain');
+            socket.on('drain',()=>{
+                console.log('Drained with ', file)
+            })
             return null;
         }
-        writer = files[file]
+        // writer = files[file]
+        // console.log(file);
+        writer = streamController.filter(element => element.channel === file)[0]
+        let writerclass=writer;
+        let path = writer.channel
+        writer = writer.writer;
+        // console.log(writer);
+        // console.log(`Escribinedo en el canal ${path}`)
         writer.write(chunk);
+       // writerclass.drain(socket)
         cc = null;
         file = null;
         cl = null;
 
-    }).on('end', () => {
-        for(let writer in files){
-            console.log('Cerrando flujo hacia', writer)
-            files[writer].close()
+    })/*.on('end', () => {
+        for(let stream of streamController){
+            console.log('Cerrando flujo hacia', stream.channel)
+            stream.writer.close();
 
         }
         socket.destroy();
-        // server.close()
+        server.close()
         console.log('Socket cerrado')
-    })
-    // socket.on('data', (chunk) => {
-    //     if (chunk === null) return null;
-    //      let writer;
-    //     let c = chunk.readUint8(0)
-    //     let filename = (chunk.subarray(5, c + 5)).toString('utf-8');
-    //     console.log(c,filename)
-    //   createWriter(filename);
-
-    //   let b = chunk.readUInt32BE(0);
-    //   console.log(chunk.toString('utf-8',0,b))
-    //   let ca = chunk.toString('utf-8', c+ 6,c + 6 +b)
-    //   console.log(ca)
-    //   writer = files[filename]
-    //   writer.on('finish', ()=>{writer.close(); writer.end()})
-    //     writer.write(ca);
-
-
-
-
-
-
-    // }).on('finish', function closeSocket(){
-    //     socket.end();
-    // })
-    // socket.on('error', (err) => { })
+    })*/
 })
 
 server.listen(4040, () => {
     console.log('Server: ON');
+}).on('readable',()=>{
+    console.log('server read')
 })
     .on('connection', () => {
         console.log('Un cliente se ha conectado');
